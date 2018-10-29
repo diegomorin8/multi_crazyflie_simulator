@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="quad_number" default="1" />
+  <node name="$(anon dynamical_model)" pkg="multi_crazyflie_simulator" type="CrazyFlie_dynamical_model.py" output="screen">
+    <param name="topic" value="/crazyflie_$(arg quad_number)" />
+  </node>
+</launch>

@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="num_quads" default="1" />
+  <arg name="mode" default="RANDOM" />
+  <arg name="radius" default="2" />
+  <group ns="crazyflie_swarm">
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 0)">
+       <arg name="quad_number" value="0"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 1)">
+       <arg name="quad_number" value="1"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 2)">
+       <arg name="quad_number" value="2"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 3)">
+       <arg name="quad_number" value="3"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 4)">
+       <arg name="quad_number" value="4"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 5)">
+       <arg name="quad_number" value="5"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 6)">
+       <arg name="quad_number" value="6"/>
+    </include>
+    <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 7)">
+       <arg name="quad_number" value="7"/>
+    </include>
+  </group>
+
+  <!-- run rviz -->
+  <!-- run rviz -->
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find crazyflie_description)/urdf/crazyflie2.urdf.xacro" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie_pos_multi.rviz" required="true" />
+
+  <node name="initPose" pkg="multi_crazyflie_simulator" type="initPose.py" output="screen">
+    <param name = "num_quads" value = "$(arg num_quads)"/>
+    <param name = "mode" value = "$(arg mode)"/>
+    <param name = "radius" value = "$(arg radius)"/>
+  </node>
+</launch>
