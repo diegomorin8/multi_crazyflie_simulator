@@ -1,3 +1,7 @@
+//-------------------------------------------------------------------
+#include "Utils/CMatrix3d.h"
+#include "Utils/CVector3d.h"
+//-------------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -40,8 +44,9 @@ class CF_parameters{
     double CT = KT*air_density*pow(2*ROTOR_SIZE, 4)/3600;
     double CD = KD*air_density*pow(2*ROTOR_SIZE, 5)/(2*3600*_PI));
 
-    double INERTIA_MATRIX[3][3] = {{IXX, IXY, IXZ},{IXY, IYY, IYZ}, {IXZ, IYZ, IZZ}};
-
+    cMatrix3d INERTIA_MATRIX;
+	cMatrix3d INV_INERTIA_MATRIX; 
+	
     // Intertia Matrix declaration
     double IXX = 16.5717e-06;
     double IYY = 26.6556e-06;
@@ -57,31 +62,20 @@ class CF_parameters{
     double G = 9.81;
     int NUM_MOTORS = 4;
 
-    float motors[NUM_MOTORS][3];
+	cVector3d motors[NUM_MOTORS];
+
 
 public:
 
    CF_parameters();
-}
+};
 
 CF_parameters::CF_parameters(){
-      for (int i = 0; i < NUM_MOTORS; i++){
-          motors[i][0] = L * cos((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180));
-          motors[i][1] = L * sin((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180));
-          motors[i][2] = 0;
-      }
+	INERTIA_MATRIX = new cMatrix3d(IXX, IXY, IXZ, IXY, IYY, IYZ, IXZ, IYZ, IZZ);
+	INV_INERTIA_MATRIX = new cMatrix3d();
+	INERTIA_MATRIX.invertr(INV_INERTIA_MATRIX);
+
+    for (int i = 0; i < NUM_MOTORS; i++){
+		motors[i] = new cVector3d(L * cos((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180), L * sin((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180)), 0.0f); 
+    }
 }
-
-
-    self.CT = self.KT*self.air_density*(2*self.ROTOR_SIZE)**4/3600
-    self.CD = self.KD*self.air_density*(2*self.ROTOR_SIZE)**5/(2*np.pi*3600)
-
-
-
-    self.INERTIA_MATRIX = np.array([[self.IXX, self.IXY, self.IXZ], [self.IXY, self.IYY, self.IYZ], [self.IXZ, self.IYZ, self.IZZ]])
-    self.INV_INERTIA_MATRIX = np.linalg.inv(self.INERTIA_MATRIX)
-
-
-    self.motors = np.zeros((self.NUM_MOTORS,3))
-
-    # TODO: CHECK THIS TRIGONOMETRIC RELATION

@@ -7,7 +7,7 @@ from math import cos, sin, tan
 
 from cf_physical_parameters import CF_parameters
 from cf_pid_params import CF_pid_params
-from pid import PID
+from cf_pid import PID
 import time
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, PoseStamped, PointStamped
