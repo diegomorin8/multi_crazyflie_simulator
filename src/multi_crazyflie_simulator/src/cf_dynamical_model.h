@@ -1,6 +1,9 @@
 #include "Utils/CConstants.h"
 #include "Utils/CMatrix3d.h"
 #include "Utils/CVector3d.h"
+#include "cf_physical_parameters.h"
+#include "cf_state.h"
+#include "cf_pid_parameters.h"
 
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
@@ -12,382 +15,204 @@
 #include "geometry_msgs/PointStamped.h"
 #include "nav_msgs/Odometry.h"
 
-class CF_state {
+class CF_model {
 	public:
-		CF_state();
-		CF_state(int _num_motors);
-public:
-		cVector3d position;
-		cVector3d lin_vel;
-		cVector3d attitude;
-		cVector3d attitude_deg;
-		cVector3d ang_vel_deg;
-		cVector3d ang_vel;
-		int * motor_pwm;
-		double * motor_rotation_speed;
-		double sum_motor_rotations;
-		cVector3d forces;
-		cVector3d momentums;
-		int num_motors = 4; 
+		CF_model(ros::NodeHandle* nodehandle);
+	
+	private:
+
+		// put private member data here;  "private" data will only be available to member functions of this class;
+		ros::NodeHandle nh_; // we will need this, to pass between "main" and constructor
+
+		// some objects to support subscriber, service, and publisher
+		ros::Subscriber cmd_vel; //these will be set up within the class constructor, hiding these ugly details
+		ros::Subscriber cmd_pos; //these will be set up within the class constructor, hiding these ugly details
+		ros::Subscriber init_pose; //these will be set up within the class constructor, hiding these ugly details
+		ros::Publisher  out_pos;
+		ros::Publisher  init_pose_ack;
+
+		geometry_msgs::PoseStamped msg; 
+
+		// Frequency
+		ros::Rate simulation_freq;
+
+		std::string topic; 
+
+		bool isInit = false; 
+
+		// System state : position, linear velocities,
+		// attitude and angular velocities
+		CF_state cf_state; 
+
+		//# Import the crazyflie physical paramters
+		//#     - These parameters are obtained from different sources.
+		//#     - For these parameters and the dynamical equations refer
+		//#       to : DESIGN OF A TRAJECTORY TRACKING CONTROLLER FOR A
+		//#            NANOQUADCOPTER
+		//#            Luis, C., &Le Ny, J. (August, 2016)
+		CF_parameters cf_physical_parameters;
+
+		// For sync purposes
+		int out_pos_counter = 0; 
+		int out_pos_counter_max;
+
+		std::string = "POS"; 
+
+		cMatrix3d eulerMatrix; 
+		cMatrix3d invRotationMatrix; 
+
+		enum cEulerOrder
+		{
+			C_EULER_ORDER_XYZ,
+			C_EULER_ORDER_XYX,
+			C_EULER_ORDER_XZY,
+			C_EULER_ORDER_XZX,
+			C_EULER_ORDER_YZX,
+			C_EULER_ORDER_YZY,
+			C_EULER_ORDER_YXZ,
+			C_EULER_ORDER_YXY,
+			C_EULER_ORDER_ZXY,
+			C_EULER_ORDER_ZXZ,
+			C_EULER_ORDER_ZYX,
+			C_EULER_ORDER_ZYZ
+		};
+	
+	public:
+		void eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_matrix);
+	
+	private:
+		void newInitPosition(geometry_msgs::PointStamped msg_in);
+		void applySimulationStep();
+
+
 };
 
-CF_state::CF_state() {
-	position.zero();
-	lin_vel.zero();
-	attitude.zero();
-	attitude_deg.zero();
-	ang_vel_deg.zero();
-	ang_vel.zero();
-	forces.zero(); 
-	momentums.zero();
-	sum_motor_rotations = 0; 
-	motor_pwm = new int[num_motors]();
-	motor_rotation_speed = new double[motor_rotation_speed]();
-	for (int i = 0; i < num_motors; i++) {
-		motors_pwm[i] = 0;
-		motor_rotation_speed[i] = 0.0;
+CF_model::CF_model(ros::NodeHandle* nodehandle):nh_(*nodehandle){
+
+}
+void CF_model::eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_matrix) {
+	double cos_roll = cos(roll);
+	double sin_roll = sin(roll);
+
+	double cos_pitch = cos(pitch) + 1e-12;
+	double tan_pitch = tan(pitch);
+
+	a_matrix.set(	1, sin_roll * tan_pitch, cos_roll * tan_pitch,
+					0, cos_roll, -sin_roll,
+					0, sin_roll / cos_pitch, cos_roll / cos_pitch);
+}
+
+void CF_model::newInitPosition(geometry_msgs::PointStamped msg_in) {
+	
+	if (topic == msg_in.header.frame_id) {
+		cf_state.position.set(position_msg.point.x, position_msg.point.y, position_msg.point.z);
+		
+		//TODO: send to PID
+		//self.desired_pos = np.array([position_msg.point.x, position_msg.point.y, position_msg.point.z])
+		
+		isInit = true;
+		std_msgs::String msgID;
+		msgID = position_msg.header.frame_id;
+		pub_ack.publish(msgID);
 	}
 }
 
-CF_state::CF_state(int _num_motors) {
-	position.zero();
-	lin_vel.zero();
-	attitude.zero();
-	attitude_deg.zero();
-	ang_vel_deg.zero();
-	ang_vel.zero();
-	forces.zero();
-	momentums.zero();
-	sum_motor_rotations = 0;
-	num_motors = _num_motors; 
-	motor_pwm = new int[num_motors]();
-	motor_rotation_speed = new double[motor_rotation_speed]();
-	for (int i = 0; i < num_motors; i++) {
-		motors_pwm[i] = 0;
-		motor_rotation_speed[i] = 0.0;
-	}
+//###########################
+//# Single step simulation
+//###########################
+void CF_model::applySimulationStep() {
+
+	//###########################
+	//# Main simulation loop
+	//#   - The CF works at a rate of 1000Hz,
+	//#     in the same way, we are simulating
+	//#     at the same frequency
+	//###########################
+
+	//# New simulated state
+	CF_state new_state = CF_state(); 
+
+	//# Matrices
+	invRotationMatrix.setExtrinsicEulerRotationRad(cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2], cEulerOrder.C_EULER_ORDER_ZYX);
+	eulerMatrix(cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2], eulerMatrix);
+
+	cf_state.getMotorRotationSpeed();
+	cf_state.addMotorsRotationsSpeed();
+	cf_state.getForces();
+	cf_state.getMomentums();
+
+
+	new_state.lin_vel = np.dot(np.linalg.inv(rotation_matrix), self.cf_state.forces) / self.cf_physical_params.DRONE_MASS - np.array([0, 0, self.cf_physical_params.G])#    - np.cross(self.cf_state.ang_vel, self.cf_state.lin_vel)
+
 }
 
 
-def getMotorRotationSpeed(self) :
-	for i in range(0, 4) :
-		self.motor_rotation_speed[i] = 0.2685*self.motor_pwm[i] + 4070.3
 
-def addMotorsRotationsSpeed(self) :
-	self.sum_motor_rotations = sum(self.motor_rotation_speed**2)
+	
 
-def getForces(self) :
-	self.forces = np.array([0, 0, CF_parameters().CT*self.sum_motor_rotations])
+	
 
-def getMomentums(self) :
-	self.momentums[0] = (CF_parameters().L * CF_parameters().CT / np.sqrt(2))*(-self.motor_rotation_speed[0] * *2 - self.motor_rotation_speed[1] * *2 + self.motor_rotation_speed[2] * *2 + self.motor_rotation_speed[3] * *2)
-	self.momentums[1] = (CF_parameters().L * CF_parameters().CT / np.sqrt(2))*(-self.motor_rotation_speed[0] * *2 + self.motor_rotation_speed[1] * *2 + self.motor_rotation_speed[2] * *2 - self.motor_rotation_speed[3] * *2)
-	self.momentums[2] = CF_parameters().CD * (-self.motor_rotation_speed[0] * *2 + self.motor_rotation_speed[1] * *2 - self.motor_rotation_speed[2] * *2 + self.motor_rotation_speed[3] * *2)
+	
 
+	new_state.lin_vel = np.dot(np.linalg.inv(rotation_matrix), self.cf_state.forces) / self.cf_physical_params.DRONE_MASS - np.array([0, 0, self.cf_physical_params.G])#   - np.cross(self.cf_state.ang_vel, self.cf_state.lin_vel)
 
-		class CF_model() :
+	new_state.position = self.cf_state.lin_vel
 
-		def __init__(self) :
+	preoperation = self.cf_state.momentums - np.cross(self.cf_state.ang_vel,
+		np.dot(self.cf_physical_params.INERTIA_MATRIX,
+			self.cf_state.ang_vel))
+	new_state.ang_vel = np.dot(self.cf_physical_params.INV_INERTIA_MATRIX, preoperation)
 
-		rospy.init_node("dynamic_model", anonymous = True)
-		self.topic = rospy.get_param("~topic")
+	new_state.attitude = np.dot(euler_matrix, self.cf_state.ang_vel)
 
-		rospy.Subscriber(self.topic + "/cmd_vel", Twist, self.new_attitude_setpoint)
-		rospy.Subscriber(self.topic + "/cmd_pos", Position, self.new_position_setpoint)
-		rospy.Subscriber("/init_pose", PointStamped, self.new_init_position)
-		self.pub_pos = rospy.Publisher(self.topic + "/out_pos", PoseStamped, queue_size = 1000)
-		self.pub_ack = rospy.Publisher("/init_pose_ack", String, queue_size = 1000)
-		self.msg = PoseStamped()
+	for i in range(0, 3) :
+		self.cf_state.position[i] = self.cf_state.position[i] + (new_state.position[i] * self.cf_physical_params.DT_CF)
+		self.cf_state.attitude[i] = self.cf_state.attitude[i] + (new_state.attitude[i] * self.cf_physical_params.DT_CF)
+		self.cf_state.lin_vel[i] = self.cf_state.lin_vel[i] + (new_state.lin_vel[i] * self.cf_physical_params.DT_CF)
+		self.cf_state.ang_vel[i] = self.cf_state.ang_vel[i] + (new_state.ang_vel[i] * self.cf_physical_params.DT_CF)
 
-		self.isInit = False
+		self.cf_state.ang_vel_deg = self.cf_state.ang_vel*180.0 / np.pi
+		self.cf_state.attitude_deg = self.cf_state.attitude*180.0 / np.pi
 
-		# System state : position, linear velocities,
-		# attitude and angular velocities
-		self.cf_state = CF_state()
-
-		# Import the crazyflie physical paramters
-#     - These parameters are obtained from different sources.
-#     - For these parameters and the dynamical equations refer
-		#       to : DESIGN OF A TRAJECTORY TRACKING CONTROLLER FOR A
-		#            NANOQUADCOPTER
-		#            Luis, C., &Le Ny, J. (August, 2016)
-		self.cf_physical_params = CF_parameters()
-
-		# Import the PID gains(from the firmware)
-		self.cf_pid_gains = CF_pid_params()
-
-		# Main CF variables initialization(if needed)
-		self.simulation_freq = rospy.Rate(int(1 / self.cf_physical_params.DT_CF))
-
-######################
-		# Initialize PID
-######################
-
-		# Out from the PIDs, values of
-		# r, p, y, thrust
-		self.desired_rpy = np.zeros(3)
-
-		# Comes from the external position controller
-		self.desired_thrust = 0.0
-
-
-######################
-		# Angular velocities
-######################
-
-		self.wx_pid = PID(self.cf_pid_gains.KP_WX,
-			self.cf_pid_gains.KI_WX,
-			self.cf_pid_gains.KD_WX,
-			self.cf_pid_gains.INT_MAX_WX,
-			self.cf_pid_gains.WX_DT)
-
-		self.wy_pid = PID(self.cf_pid_gains.KP_WY,
-			self.cf_pid_gains.KI_WY,
-			self.cf_pid_gains.KD_WY,
-			self.cf_pid_gains.INT_MAX_WY,
-			self.cf_pid_gains.WY_DT)
-
-		self.wz_pid = PID(self.cf_pid_gains.KP_WZ,
-			self.cf_pid_gains.KI_WZ,
-			self.cf_pid_gains.KD_WZ,
-			self.cf_pid_gains.INT_MAX_WZ,
-			self.cf_pid_gains.WZ_DT)
-
-		self.desired_ang_vel = np.zeros(3)
-
-######################                                                  
-		# Attitudes
-######################
-
-		self.roll_pid = PID(self.cf_pid_gains.KP_ROLL,
-			self.cf_pid_gains.KI_ROLL,
-			self.cf_pid_gains.KD_ROLL,
-			self.cf_pid_gains.INT_MAX_ROLL,
-			self.cf_pid_gains.ROLL_DT)
-
-		self.pitch_pid = PID(self.cf_pid_gains.KP_PITCH,
-			self.cf_pid_gains.KI_PITCH,
-			self.cf_pid_gains.KD_PITCH,
-			self.cf_pid_gains.INT_MAX_PITCH,
-			self.cf_pid_gains.PITCH_DT)
-
-		self.yaw_pid = PID(self.cf_pid_gains.KP_YAW,
-			self.cf_pid_gains.KI_YAW,
-			self.cf_pid_gains.KD_YAW,
-			self.cf_pid_gains.INT_MAX_YAW,
-			self.cf_pid_gains.YAW_DT)
-
-		self.att_pid_counter = 0
-		self.att_pid_counter_max = int(self.cf_physical_params.DT_ATT_PIDS / self.cf_physical_params.DT_CF) - 1
-
-		self.desired_att = np.zeros(3)
-
-######################
-		# Angular velocities
-######################
-
-		self.vx_pid = PID(self.cf_pid_gains.KP_VX,
-			self.cf_pid_gains.KI_VX,
-			self.cf_pid_gains.KD_VX,
-			self.cf_pid_gains.INT_MAX_VX,
-			self.cf_pid_gains.VX_DT)
-
-		self.vy_pid = PID(self.cf_pid_gains.KP_VY,
-			self.cf_pid_gains.KI_VY,
-			self.cf_pid_gains.KD_VY,
-			self.cf_pid_gains.INT_MAX_VY,
-			self.cf_pid_gains.VY_DT)
-
-		self.vz_pid = PID(self.cf_pid_gains.KP_VZ,
-			self.cf_pid_gains.KI_VZ,
-			self.cf_pid_gains.KD_VZ,
-			self.cf_pid_gains.INT_MAX_VZ,
-			self.cf_pid_gains.VZ_DT)
-
-		self.desired_lin_vel = np.zeros(3)
-
-######################
-		# Angular velocities
-######################
-
-		self.x_pid = PID(self.cf_pid_gains.KP_X,
-			self.cf_pid_gains.KI_X,
-			self.cf_pid_gains.KD_X,
-			self.cf_pid_gains.INT_MAX_X,
-			self.cf_pid_gains.X_DT)
-
-		self.y_pid = PID(self.cf_pid_gains.KP_Y,
-			self.cf_pid_gains.KI_Y,
-			self.cf_pid_gains.KD_Y,
-			self.cf_pid_gains.INT_MAX_Y,
-			self.cf_pid_gains.Y_DT)
-
-		self.z_pid = PID(self.cf_pid_gains.KP_Z,
-			self.cf_pid_gains.KI_Z,
-			self.cf_pid_gains.KD_Z,
-			self.cf_pid_gains.INT_MAX_Z,
-			self.cf_pid_gains.Z_DT)
-
-		self.desired_pos = np.zeros(3)
-
-############################
-		# Communication control
-############################
-		self.out_pos_counter = 0
-		self.out_pos_counter_max = int(self.cf_physical_params.DT_POS_PIDS / self.cf_physical_params.DT_CF) - 1
-
-		self.mode = "POS"
-
-		self.time_processing = []
-		self.delta_time = []
-
-###########################
-		# Math operations functions
-###########################
-
-		# Rotation matrix around X
-		def rot_x(self, alpha) :
-		cos_a = cos(alpha)
-		sin_a = sin(alpha)
-		M = np.array([[1, 0, 0], [0, cos_a, sin_a], [0, -sin_a, cos_a]])
-
-		return M
-
-		# Rotation matrix around Y
-		def rot_y(self, beta) :
-		cos_b = cos(beta)
-		sin_b = sin(beta)
-		M = np.array([[cos_b, 0, -sin_b], [0, 1, 0], [sin_b, 0, cos_b]])
-
-		return M
-
-		# Rotation matrix around Z
-		def rot_z(self, gamma) :
-		cos_g = cos(gamma)
-		sin_g = sin(gamma)
-		M = np.array([[cos_g, sin_g, 0], [-sin_g, cos_g, 0], [0, 0, 1]])
-
-		return M
-
-		# Rotation matrix - from the body frame to the inertial frame
-		def rot_m(self, roll, pitch, yaw) :
-		rotx = self.rot_x(roll)
-		roty = self.rot_y(pitch)
-		rotz = self.rot_z(yaw)
-		rot = np.dot(np.dot(rotx, roty), rotz)
-
-		return rot
-
-		def rotation_matrix(self, roll, pitch, yaw) :
-		return np.array([[cos(pitch)*cos(yaw),
-			cos(pitch)*sin(yaw),
-			-sin(pitch)],
-			[sin(roll)*sin(pitch)*cos(yaw) - cos(roll)*sin(yaw),
-			sin(roll)*sin(pitch)*sin(yaw) + cos(roll)*cos(yaw),
-			sin(roll)*cos(pitch)],
-			[cos(roll)*sin(pitch)*cos(yaw) + sin(roll)*sin(yaw),
-			cos(roll)*sin(pitch)*sin(yaw) - sin(roll)*cos(yaw),
-			cos(roll)*cos(pitch)]])
-
-		def euler_matrix(self, roll, pitch, yaw) :
-		cos_roll = cos(roll)
-		sin_roll = sin(roll)
-
-		cos_pitch = cos(pitch) + 1e-12
-		tan_pitch = tan(pitch)
-		return np.array([[1, sin_roll * tan_pitch, cos_roll * tan_pitch], [0, cos_roll, -sin_roll],
-			[0, sin_roll / cos_pitch, cos_roll / cos_pitch]])
-
-		def limit(self, value) :
-		return max(min(self.cf_physical_params.PWM_MAX, value), self.cf_physical_params.PWM_MIN)
-
-###########################
-		# Callback function
-###########################
-		def new_attitude_setpoint(self, twist_msg) :
-
-##############!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-### DUDA EN EL CODIGO DEL SERVER DE LO QUE ES m_X_trim
-######################################################
-		self.mode = "ATT"
-		self.desired_att[0] = twist_msg.linear.y
-		self.desired_att[1] = -twist_msg.linear.x
-		self.desired_ang_vel[2] = twist_msg.angular.z
-		self.desired_thrust = min(twist_msg.linear.z, 60000)
-
-###########################
-		# Callback function
-###########################
-		def new_position_setpoint(self, position_msg) :
-##############!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-### DUDA EN EL CODIGO DEL SERVER DE LO QUE ES m_X_trim
-######################################################
-		self.mode = "POS"
-		self.desired_pos[0] = position_msg.x
-		self.desired_pos[1] = position_msg.y
-		self.desired_pos[2] = position_msg.z
-		self.desired_att[2] = position_msg.yaw
-
-		def new_init_position(self, position_msg) :
-		if (self.topic == position_msg.header.frame_id) :
-			self.cf_state.position = np.array([position_msg.point.x, position_msg.point.y, position_msg.point.z])
-			self.desired_pos = np.array([position_msg.point.x, position_msg.point.y, position_msg.point.z])
-			self.isInit = True
-			msgID = String()
-			msgID = position_msg.header.frame_id
-			self.pub_ack.publish(msgID)
-
-
-###########################
-			# Single step simulation
-###########################
-			def apply_simulation_step(self) :
-
-###########################
-			# Main simulation loop
-#   - The CF works at a rate of 1000Hz,
-			#     in the same way, we are simulating
-			#     at the same frequency
-###########################
-
-			# New simulated state
-			new_state = CF_state()
-
-			rotation_matrix = self.rot_m(self.cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2])
-			euler_matrix = self.euler_matrix(self.cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2])
-
-			self.cf_state.getMotorRotationSpeed()
-			self.cf_state.addMotorsRotationsSpeed()
-			self.cf_state.getForces()
-			self.cf_state.getMomentums()
-
-			new_state.lin_vel = np.dot(np.linalg.inv(rotation_matrix), self.cf_state.forces) / self.cf_physical_params.DRONE_MASS - np.array([0, 0, self.cf_physical_params.G])#  - np.cross(self.cf_state.ang_vel, self.cf_state.lin_vel)
-
-			new_state.position = self.cf_state.lin_vel
-
-			preoperation = self.cf_state.momentums - np.cross(self.cf_state.ang_vel,
-				np.dot(self.cf_physical_params.INERTIA_MATRIX,
-					self.cf_state.ang_vel))
-			new_state.ang_vel = np.dot(self.cf_physical_params.INV_INERTIA_MATRIX, preoperation)
-
-			new_state.attitude = np.dot(euler_matrix, self.cf_state.ang_vel)
-
-			for i in range(0, 3) :
-				self.cf_state.position[i] = self.cf_state.position[i] + (new_state.position[i] * self.cf_physical_params.DT_CF)
-				self.cf_state.attitude[i] = self.cf_state.attitude[i] + (new_state.attitude[i] * self.cf_physical_params.DT_CF)
-				self.cf_state.lin_vel[i] = self.cf_state.lin_vel[i] + (new_state.lin_vel[i] * self.cf_physical_params.DT_CF)
-				self.cf_state.ang_vel[i] = self.cf_state.ang_vel[i] + (new_state.ang_vel[i] * self.cf_physical_params.DT_CF)
-
-				self.cf_state.ang_vel_deg = self.cf_state.ang_vel*180.0 / np.pi
-				self.cf_state.attitude_deg = self.cf_state.attitude*180.0 / np.pi
-
-				# Ground constraints
-				if self.cf_state.position[2] <= 0:
+		# Ground constraints
+		if self.cf_state.position[2] <= 0:
 self.cf_state.position[2] = 0
 if self.cf_state.lin_vel[2] <= 0 :
 	self.cf_state.lin_vel[:] = 0.
 	self.cf_state.attitude[:-1] = 0.
 	self.cf_state.ang_vel[:] = 0.
+
+class CF_model() :
+
+	def __init__(self) :
+
+	rospy.init_node("dynamic_model", anonymous = True)
+	self.topic = rospy.get_param("~topic")
+
+	rospy.Subscriber(self.topic + "/cmd_vel", Twist, self.new_attitude_setpoint)
+	rospy.Subscriber(self.topic + "/cmd_pos", Position, self.new_position_setpoint)
+	rospy.Subscriber("/init_pose", PointStamped, self.new_init_position)
+	self.pub_pos = rospy.Publisher(self.topic + "/out_pos", PoseStamped, queue_size = 1000)
+	self.pub_ack = rospy.Publisher("/init_pose_ack", String, queue_size = 1000)
+	self.msg = PoseStamped()
+
+
+	# Main CF variables initialization(if needed)
+	self.simulation_freq = rospy.Rate(int(1 / self.cf_physical_params.DT_CF))
+
+############################
+	# Communication control
+############################
+	self.out_pos_counter = 0
+	self.out_pos_counter_max = int(self.cf_physical_params.DT_POS_PIDS / self.cf_physical_params.DT_CF) - 1
+
+	self.mode = "POS";
+
+		
+
+
+
+			
 
 	def run_pos_pid(self) :
 	self.desired_lin_vel = np.array([self.x_pid.update(self.desired_pos[0], self.cf_state.position[0]),

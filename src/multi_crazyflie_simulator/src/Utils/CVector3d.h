@@ -220,12 +220,17 @@ public:
         \param  a_z  Component __z__ of vector.
     */
     //--------------------------------------------------------------------------
-    inline void set(const double& a_x, const double& a_y, const double& a_z)
-    {
-        (*this)(0) = a_x;
-        (*this)(1) = a_y;
-        (*this)(2) = a_z;
-    }
+	inline void set(const unsigned int& a_component, const unsigned double& a_value)
+	{
+		(*this)(a_component) = a_value;
+	}
+
+	inline void set(const )
+	{
+		(*this)(0) = a_x;
+		(*this)(1) = a_y;
+		(*this)(2) = a_z;
+	}
 
     //--------------------------------------------------------------------------
     /*!
