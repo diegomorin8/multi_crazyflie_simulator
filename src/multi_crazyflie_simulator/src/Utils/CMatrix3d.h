@@ -52,20 +52,20 @@
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-enum cEulerOrder
+enum cEulerOrder 
 {
-	C_EULER_ORDER_XYZ,
-	C_EULER_ORDER_XYX,
-	C_EULER_ORDER_XZY,
-	C_EULER_ORDER_XZX,
-	C_EULER_ORDER_YZX,
-	C_EULER_ORDER_YZY,
-	C_EULER_ORDER_YXZ,
-	C_EULER_ORDER_YXY,
-	C_EULER_ORDER_ZXY,
-	C_EULER_ORDER_ZXZ,
-	C_EULER_ORDER_ZYX,
-	C_EULER_ORDER_ZYZ
+    C_EULER_ORDER_XYZ, 
+    C_EULER_ORDER_XYX,
+    C_EULER_ORDER_XZY, 
+    C_EULER_ORDER_XZX, 
+    C_EULER_ORDER_YZX,
+    C_EULER_ORDER_YZY, 
+    C_EULER_ORDER_YXZ,
+    C_EULER_ORDER_YXY, 
+    C_EULER_ORDER_ZXY, 
+    C_EULER_ORDER_ZXZ, 
+    C_EULER_ORDER_ZYX, 
+    C_EULER_ORDER_ZYZ  
 };
 //------------------------------------------------------------------------------
 

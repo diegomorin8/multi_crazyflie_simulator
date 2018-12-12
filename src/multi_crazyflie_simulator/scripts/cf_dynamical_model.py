@@ -454,8 +454,9 @@ class CF_model():
 
                 if(self.out_pos_counter == self.out_pos_counter_max):
                     self.out_pos_counter = 0
-                    self.run_pos_pid()
-                    self.run_lin_vel_pid()
+					if mode == "POS":
+						self.run_pos_pid()
+						self.run_lin_vel_pid()
                     self.publishPose()
                     #self.log_state()
                 else:

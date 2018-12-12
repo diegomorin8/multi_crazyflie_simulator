@@ -43,9 +43,6 @@ class CF_parameters{
 
     double CT = KT*air_density*pow(2*ROTOR_SIZE, 4)/3600;
     double CD = KD*air_density*pow(2*ROTOR_SIZE, 5)/(2*3600*_PI));
-
-    cMatrix3d INERTIA_MATRIX;
-	cMatrix3d INV_INERTIA_MATRIX; 
 	
     // Intertia Matrix declaration
     double IXX = 16.5717e-06;
@@ -54,6 +51,9 @@ class CF_parameters{
     double IXY = 1.2432e-06;
     double IXZ = 0.7168e-06;
     double IYZ = 2.0831e-06;
+
+	cMatrix3d INERTIA_MATRIX(IXX, IXY, IXZ, IXY, IYY, IYZ, IXZ, IYZ, IZZ);
+	cMatrix3d INV_INERTIA_MATRIX;
 
     // Arm length to the center of mass
     double L = 39.73e-3;
@@ -71,8 +71,7 @@ public:
 };
 
 CF_parameters::CF_parameters(){
-	INERTIA_MATRIX = new cMatrix3d(IXX, IXY, IXZ, IXY, IYY, IYZ, IXZ, IYZ, IZZ);
-	INV_INERTIA_MATRIX = new cMatrix3d();
+
 	INERTIA_MATRIX.invertr(INV_INERTIA_MATRIX);
 
     for (int i = 0; i < NUM_MOTORS; i++){
