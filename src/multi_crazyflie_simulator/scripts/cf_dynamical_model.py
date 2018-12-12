@@ -372,10 +372,12 @@ class CF_model():
 
         self.desired_thrust = max((raw_thrust * 1000 + self.cf_physical_params.BASE_THRUST), self.cf_physical_params.PWM_MIN)
 
+		self.desired_ang_vel[2]  = self.yaw_pid.update(self.desired_att[2], self.cf_state.attitude_deg[2])
+
     def run_att_pid(self):
         self.desired_ang_vel = np.array([self.roll_pid.update(self.desired_att[0], self.cf_state.attitude_deg[0]),
                                          self.pitch_pid.update(-self.desired_att[1], self.cf_state.attitude_deg[1]),
-                                         self.yaw_pid.update(self.desired_att[2], self.cf_state.attitude_deg[2])])
+                                         self.desired_ang_vel[2]])
 
     def run_ang_vel_pid(self):
         self.desired_rpy = np.array([self.wx_pid.update(self.desired_ang_vel[0], self.cf_state.ang_vel_deg[0]),

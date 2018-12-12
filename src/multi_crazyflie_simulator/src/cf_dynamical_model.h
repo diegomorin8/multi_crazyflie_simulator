@@ -86,6 +86,8 @@ class CF_model {
 		void applySimulationStep();
 		void publishPose(); 
 		int min(double val1, double val2);
+		void runPosPids(); 
+		void runAttPids(); 
 };
 
 CF_model::CF_model(ros::NodeHandle* nodehandle, std::string topic_):nh_(*nodehandle){
@@ -113,14 +115,13 @@ void CF_model::eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_m
 void CF_model::newInitPosition(geometry_msgs::PointStamped msg_in) {
 	
 	if (topic == msg_in.header.frame_id) {
-		cf_state.position.set(position_msg.point.x, position_msg.point.y, position_msg.point.z);
+		cf_state.position.set(msg_in.point.x, msg_in.point.y, msg_in.point.z);
 		
-		//TODO: send to PID
-		//self.desired_pos = np.array([position_msg.point.x, position_msg.point.y, position_msg.point.z])
+		pidHandler.setPosCmd(msg_in.point.x, msg_in.point.y, msg_in.point.z, 0.0);
 		
 		isInit = true;
 		std_msgs::String msgID;
-		msgID.data = position_msg.header.frame_id;
+		msgID.data = msg_in.header.frame_id;
 		pub_ack.publish(msgID);
 	}
 }
@@ -240,13 +241,22 @@ void CF_state::publishPose(){
 	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), self.topic + "/base_link", "/base_link"));
 }
 
+void CF_state::runAttPids() {
+	pidHandler.runAttPID(cf_state.attitude_deg.x(), cf_state.attitude_deg.y());
+	pidHandler.runAngVelPID(cf_state.ang_vel_deg.x(), cf_state.ang_vel_deg.y(), cf_state.ang_vel_deg.z(), cf_state.motor_pwm);
+}
+
+void CF_state::runPosPids() {
+	pidHandler.runPosPID(cf_state.position.x(), cf_state.position.y(), cf_state.position.z());
+	pidHandler.runLinVelPID(cf_state.lin_vel.x(), cf_state.lin_vel.y(), cf_state.lin_vel.z(), cf_state.attitude_deg.z());
+}
+
 void CF_state::run() {
 	while (ros::ok()) {
 		if (isInit) {
 			applySimulationStep();
 			if (attPidCounter == pidHandler.attPidCounterMax()) {
-				runAttPid(); 
-				runAngVelPid(); 
+				runAttPids(); 
 				attPidCounter = 0;
 			}
 			else {
@@ -254,10 +264,9 @@ void CF_state::run() {
 			}
 			if (posPidCounter == pidHandler.posPidCounterMax()) {
 				if(mode == "POS"){
-					runPosPid()
-					runLinVelPid()
+					runPosPids();
 				}
-				publishPose()
+				publishPose();
 				posPidCounter = 0; 
 			}
 		}
