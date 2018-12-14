@@ -1815,46 +1815,6 @@ public:
     }
 
 
-    //--------------------------------------------------------------------------
-    /*!
-        \brief
-        This method converts this matrix to a string representation.
-
-        \details
-        This method converts this matrix to a string representation. The output 
-        springs displays the three column vectors of matrix. \n
-        The number of digits after the decimal point are set by 
-        argument \p a_precision.
-
-        \param  a_precision  Number of digits.
-
-        \return Converted matrix in string format.
-    */
-    //--------------------------------------------------------------------------
-    inline std::string str(const unsigned int a_precision = 2) const
-    {
-        std::string result;
-        result.append("[ ");
-
-        for (int i=0; i<3; i++)
-        {
-            result.append("( ");
-            for (int j=0; j<3; j++)
-            {
-                result.append(cStr((*this)(j,i), a_precision));
-                if (j<2)
-                {
-                    result.append(", ");
-                }
-            }
-            result.append(" ) ");
-        }
-        result.append("]");
-
-        return (result);
-    }
-
-
     //! An overloaded <b> *= </b> operator for matrix/scalar multiplication.
     inline void operator*= (const double& a_val)
     {

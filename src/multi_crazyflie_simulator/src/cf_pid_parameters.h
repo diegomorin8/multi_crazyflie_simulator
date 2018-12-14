@@ -1,3 +1,6 @@
+#ifndef CF_PID_PARAMSH
+#define CF_PID_PARAMSH
+
 //##################
 //## POSITION PID ##
 //##################
@@ -11,7 +14,7 @@
 
 //# Y POS
 #define KP_Y 2
-#define .KI_Y 0.0
+#define KI_Y 0.0
 #define KD_Y 0.0
 #define INT_MAX_Y 5000.0
 #define Y_DT 0.01
@@ -31,18 +34,18 @@
 //# X VEL
 #define KP_VX 25
 #define KI_VX 1.0
-#define D_VX 0.0
+#define KD_VX 0.0
 #define VX_DT 0.01
 #define INT_MAX_VX 5000.0
 #define MAX_ROLL 20
 
 //# Y VEL
 #define KP_VY 25
-#define .KI_VY 1.0
+#define KI_VY 1.0
 #define KD_VY 0.0
 #define VY_DT 0.01
 #define INT_MAX_VY 5000.0
-#define .MAX_PITCH 20
+#define MAX_PITCH 20
 
 //# Z VEL
 #define KP_VZ 25.0
@@ -57,7 +60,7 @@
 //#############
 
 //# PITCH
-#define .KP_ROLL 6.0
+#define KP_ROLL 6.0
 #define KI_ROLL 3.0
 #define KD_ROLL 0.0
 #define INT_MAX_ROLL 20
@@ -84,22 +87,24 @@
 //#################
 
 //# WX VEL
-#define KP_WX = 250.0
-#define KI_WX = 500.0
-#define KD_WX = 0 * 2.5
-#define INT_MAX_WX = 33.3
-#define WX_DT = 0.002
+#define KP_WX 250.0
+#define KI_WX 500.0
+#define KD_WX 0 //2.5
+#define INT_MAX_WX 33.3
+#define WX_DT 0.002
 
 //# WY VEL
-#define KP_WY = 250.0
-#define .KI_WY = 500.0
-#define KD_WY = 0 * 2.5
-#define INT_MAX_WY = 33.3
-#define WY_DT = 0.002
+#define KP_WY 250.0
+#define KI_WY 500.0
+#define KD_WY 0 * 2.5
+#define INT_MAX_WY 33.3
+#define WY_DT 0.002
 
 //# WZ VEL
-#define KP_WZ = 120.
-#define KI_WZ = 16.7
-#define KD_WZ = 0.0
-#define INT_MAX_WZ = 166.7
-#define WZ_DT = 0.002
+#define KP_WZ 120.
+#define KI_WZ 16.7
+#define KD_WZ 0.0
+#define INT_MAX_WZ 166.7
+#define WZ_DT 0.002
+
+#endif

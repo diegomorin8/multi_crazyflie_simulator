@@ -35,7 +35,7 @@
   <param name="robot_description" command="$(find xacro)/xacro.py $(find crazyflie_description)/urdf/crazyflie2.urdf.xacro" />
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie_pos_multi.rviz" required="true" />
 
-  <node name="initPose" pkg="multi_crazyflie_simulator" type="initPose.py" output="screen">
+  <node name="initPose" pkg="multi_crazyflie_simulator" type="cf_initPose.py" output="screen">
     <param name = "num_quads" value = "$(arg num_quads)"/>
     <param name = "mode" value = "$(arg mode)"/>
     <param name = "radius" value = "$(arg radius)"/>

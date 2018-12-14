@@ -17,7 +17,7 @@
 
 class CF_model {
 	public:
-		CF_model(ros::NodeHandle* nodehandle);
+		CF_model(ros::NodeHandle* nodehandle, std::string topic_);
 	
 	private:
 
@@ -28,13 +28,13 @@ class CF_model {
 		ros::Subscriber cmd_vel; 
 		ros::Subscriber cmd_pos; 
 		ros::Subscriber init_pose; 
-		ros::Publisher  init_pose_ack;
-		ros::Publisher  out_pos;
+		ros::Publisher  pub_ack;
+		ros::Publisher  pub_pos;
 
 		geometry_msgs::PoseStamped msgPose; 
 
 		// Frequency
-		ros::Rate simulation_freq(1000);
+		ros::Rate simulation_freq = ros::Rate(1000);
 
 		std::string topic; 
 
@@ -52,7 +52,7 @@ class CF_model {
 		//#       to : DESIGN OF A TRAJECTORY TRACKING CONTROLLER FOR A
 		//#            NANOQUADCOPTER
 		//#            Luis, C., &Le Ny, J. (August, 2016)
-		CF_parameters cf_physical_parameters;
+		CF_parameters cf_physical_params;
 
 		CF_pid_handler pidHandler; 
 		std::string mode = "POS"; 
@@ -60,29 +60,15 @@ class CF_model {
 		cMatrix3d eulerMat; 
 		cMatrix3d invRotationMatrix; 
 
-		enum cEulerOrder
-		{
-			C_EULER_ORDER_XYZ,
-			C_EULER_ORDER_XYX,
-			C_EULER_ORDER_XZY,
-			C_EULER_ORDER_XZX,
-			C_EULER_ORDER_YZX,
-			C_EULER_ORDER_YZY,
-			C_EULER_ORDER_YXZ,
-			C_EULER_ORDER_YXY,
-			C_EULER_ORDER_ZXY,
-			C_EULER_ORDER_ZXZ,
-			C_EULER_ORDER_ZYX,
-			C_EULER_ORDER_ZYZ
-		};
+		
 	
 	public:
 		void run();
 	private:
 		void eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_matrix);
-		void newInitPosition(geometry_msgs::PointStamped msg_in);
-		void newVelCommand(geometry_msgs::Twist msg_in);
-		void newPosCommand(crazyflie_driver::Position msg_in);
+		void newInitPosition(const geometry_msgs::PointStamped& msg_in);
+		void newVelCommand(const geometry_msgs::Twist& msg_in);
+		void newPosCommand(const crazyflie_driver::Position& msg_in);
 		void applySimulationStep();
 		void publishPose(); 
 		int min(double val1, double val2);
@@ -93,11 +79,12 @@ class CF_model {
 CF_model::CF_model(ros::NodeHandle* nodehandle, std::string topic_):nh_(*nodehandle){
 	topic = topic_;
 
-	cmd_vel = nh_.subscribe(self.topic + "/cmd_vel", 1000, newVelCommand);
-	cmd_pos = nh_.subscribe(self.topic + "/cmd_pos", 1000, newPosCommand);
-	init_pose = nh_.subscribe("/init_pose", 1000, newInitPosition);
-	pub_ack = nh_.advertise<geometry_msgs::PoseStamped>(self.topic + "/out_pos", 1000);
-	pub_pos = nh_.advertise<std_msgs::String>("/init_pose_ack", , 1000);
+	pidHandler = CF_pid_handler();
+	cmd_vel = nh_.subscribe(topic + "/cmd_vel", 1000, &CF_model::newVelCommand, this);
+	cmd_pos = nh_.subscribe(topic + "/cmd_pos", 1000, &CF_model::newPosCommand, this);
+	init_pose = nh_.subscribe("/init_pose", 1000, &CF_model::newInitPosition, this);
+	pub_ack = nh_.advertise<geometry_msgs::PoseStamped>(topic + "/out_pos", 1000);
+	pub_pos = nh_.advertise<std_msgs::String>("/init_pose_ack" , 1000);
 }
 
 void CF_model::eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_matrix) {
@@ -112,7 +99,7 @@ void CF_model::eulerMatrix(double roll, double pitch, double yaw, cMatrix3d& a_m
 					0, sin_roll / cos_pitch, cos_roll / cos_pitch);
 }
 
-void CF_model::newInitPosition(geometry_msgs::PointStamped msg_in) {
+void CF_model::newInitPosition(const geometry_msgs::PointStamped& msg_in) {
 	
 	if (topic == msg_in.header.frame_id) {
 		cf_state.position.set(msg_in.point.x, msg_in.point.y, msg_in.point.z);
@@ -126,14 +113,14 @@ void CF_model::newInitPosition(geometry_msgs::PointStamped msg_in) {
 	}
 }
 
-void CF_model::newVelCommand(geometry_msgs::Twist msg_in) {
+void CF_model::newVelCommand(const geometry_msgs::Twist& msg_in) {
 	mode = "ATT";
 	pidHandler.setVelCmd(msg_in.linear.y, -msg_in.linear.x, msg_in.angular.z, min(msg_in.linear.z, 60000));
 }
 
-void CF_model::newPosCommand(crazyflie_driver::Position msg_in) {
+void CF_model::newPosCommand(const crazyflie_driver::Position& msg_in) {
 	mode = "POS";
-	pidHandler.setPosCmd(msg_in.x, msg_in.y, msg_in.z, msg_in.yaw));
+	pidHandler.setPosCmd(msg_in.x, msg_in.y, msg_in.z, msg_in.yaw);
 }
 
 int CF_model::min(double val1, double val2) {
@@ -160,18 +147,18 @@ void CF_model::applySimulationStep() {
 	CF_state new_state = CF_state(); 
 
 	//# Matrices
-	invRotationMatrix.setExtrinsicEulerRotationRad(cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2], cEulerOrder.C_EULER_ORDER_ZYX);
-	eulerMatrix(cf_state.attitude[0], self.cf_state.attitude[1], self.cf_state.attitude[2], eulerMat);
+	invRotationMatrix.setExtrinsicEulerRotationRad(cf_state.attitude.x(), cf_state.attitude.y(), cf_state.attitude.z(), C_EULER_ORDER_ZYX);
+	eulerMatrix(cf_state.attitude.x(), cf_state.attitude.y(), cf_state.attitude.z(), eulerMat);
 
 	cf_state.getMotorRotationSpeed();
-	cf_state.addMotorsRotationsSpeed();
+	cf_state.addMotorRotationSpeed();
 	cf_state.getForces();
 	cf_state.getMomentums();
 
 	//# Linear velocity
-	rotation_matrix.mulr(cf_state.forces, new_state.lin_vel);
+	invRotationMatrix.mulr(cf_state.forces, new_state.lin_vel);
 	new_state.lin_vel.div(cf_physical_params.DRONE_MASS);
-	new_state.lin_vel.sub(new cVector3d(0, 0, cf_physical_params.G));
+	new_state.lin_vel.sub(cVector3d(0, 0, cf_physical_params.G));
 
 	//# Position
 	new_state.position.copyfrom(new_state.lin_vel);
@@ -186,7 +173,7 @@ void CF_model::applySimulationStep() {
 	cf_physical_params.INV_INERTIA_MATRIX.mulr(preopB, new_state.ang_vel);
 
 	//# Attitude
-	euler_mat.mulr(cf_state.ang_vel, new_state.attitude);
+	eulerMat.mulr(cf_state.ang_vel, new_state.attitude);
 
 	//# Integrate;
 	new_state.position.mul(cf_physical_params.DT_CF);
@@ -219,7 +206,7 @@ void CF_model::applySimulationStep() {
 //# PUBLISH POSE #
 //################
 
-void CF_state::publishPose(){
+void CF_model::publishPose(){
 	msgPose.header.frame_id = "/base_link";
 	msgPose.pose.position.x = cf_state.position.x();
 	msgPose.pose.position.y = cf_state.position.y();
@@ -238,31 +225,31 @@ void CF_state::publishPose(){
 	pub_pos.publish(msgPose);
 	static tf::TransformBroadcaster br;
 
-	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), self.topic + "/base_link", "/base_link"));
+	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), topic + "/base_link", "/base_link"));
 }
 
-void CF_state::runAttPids() {
+void CF_model::runAttPids() {
 	pidHandler.runAttPID(cf_state.attitude_deg.x(), cf_state.attitude_deg.y());
 	pidHandler.runAngVelPID(cf_state.ang_vel_deg.x(), cf_state.ang_vel_deg.y(), cf_state.ang_vel_deg.z(), cf_state.motor_pwm);
 }
 
-void CF_state::runPosPids() {
+void CF_model::runPosPids() {
 	pidHandler.runPosPID(cf_state.position.x(), cf_state.position.y(), cf_state.position.z());
 	pidHandler.runLinVelPID(cf_state.lin_vel.x(), cf_state.lin_vel.y(), cf_state.lin_vel.z(), cf_state.attitude_deg.z());
 }
 
-void CF_state::run() {
+void CF_model::run() {
 	while (ros::ok()) {
 		if (isInit) {
 			applySimulationStep();
-			if (attPidCounter == pidHandler.attPidCounterMax()) {
+			if (attPidCounter == pidHandler.getPidAttCounterMax()) {
 				runAttPids(); 
 				attPidCounter = 0;
 			}
 			else {
 				attPidCounter++;
 			}
-			if (posPidCounter == pidHandler.posPidCounterMax()) {
+			if (posPidCounter == pidHandler.getPidPosCounterMax()) {
 				if(mode == "POS"){
 					runPosPids();
 				}

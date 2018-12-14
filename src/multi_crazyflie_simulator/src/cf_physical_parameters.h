@@ -1,3 +1,5 @@
+#ifndef CF_ParametersH
+#define CF_ParametersH
 //-------------------------------------------------------------------
 #include "Utils/CMatrix3d.h"
 #include "Utils/CVector3d.h"
@@ -39,10 +41,10 @@ class CF_parameters{
 
     //#########################################
     //#### Motor distribution in single CF ####
-    #########################################
+    //#########################################
 
     double CT = KT*air_density*pow(2*ROTOR_SIZE, 4)/3600;
-    double CD = KD*air_density*pow(2*ROTOR_SIZE, 5)/(2*3600*_PI));
+    double CD = KD*air_density*pow(2*ROTOR_SIZE, 5)/(2*3600*M_PI);
 	
     // Intertia Matrix declaration
     double IXX = 16.5717e-06;
@@ -52,7 +54,7 @@ class CF_parameters{
     double IXZ = 0.7168e-06;
     double IYZ = 2.0831e-06;
 
-	cMatrix3d INERTIA_MATRIX(IXX, IXY, IXZ, IXY, IYY, IYZ, IXZ, IYZ, IZZ);
+	cMatrix3d INERTIA_MATRIX = cMatrix3d(IXX, IXY, IXZ, IXY, IYY, IYZ, IXZ, IYZ, IZZ);
 	cMatrix3d INV_INERTIA_MATRIX;
 
     // Arm length to the center of mass
@@ -60,14 +62,18 @@ class CF_parameters{
 
     //Gravity value and vector
     double G = 9.81;
-    int NUM_MOTORS = 4;
 
+  private: 
+    static const int NUM_MOTORS = 4;
+
+  public:
 	cVector3d motors[NUM_MOTORS];
 
 
 public:
 
    CF_parameters();
+   int getNumMotors();
 };
 
 CF_parameters::CF_parameters(){
@@ -75,6 +81,13 @@ CF_parameters::CF_parameters(){
 	INERTIA_MATRIX.invertr(INV_INERTIA_MATRIX);
 
     for (int i = 0; i < NUM_MOTORS; i++){
-		motors[i] = new cVector3d(L * cos((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180), L * sin((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180)), 0.0f); 
+		motors[i] = cVector3d(L * cos((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180)), L * sin((45 * M_PI / 180.0) + i * (90.0 * M_PI / 180)), 0.0f); 
     }
 }
+
+int CF_parameters::getNumMotors(){
+   return NUM_MOTORS;
+}
+
+#endif
+

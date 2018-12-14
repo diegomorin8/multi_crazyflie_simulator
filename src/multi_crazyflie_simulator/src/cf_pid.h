@@ -1,7 +1,7 @@
 class PID{
 
 	public:
-		PID(); 
+		PID(double _kp, double _ki, double  _kd, double  _max_i_value, double  _dt); 
 		double update(double desired, double measurement);
 
 	private: 
@@ -15,7 +15,7 @@ class PID{
 		double dt;
 		double prev_error = 0.0f;
 		double integ = 0.0f;
-}
+};
 
 PID::PID(double _kp, double _ki, double  _kd, double  _max_i_value, double  _dt) {
 	kp = _kp;
@@ -25,7 +25,7 @@ PID::PID(double _kp, double _ki, double  _kd, double  _max_i_value, double  _dt)
 	dt = _dt;
 }
 
-double PID::constrain(double val, double min_vale, double max_val) {
+double PID::constrain(double val, double min_val, double max_val) {
 	if (val < min_val) return min_val;
 	if (val > max_val) return max_val;
 	return val;
@@ -49,7 +49,7 @@ double PID::update(double desired, double measurement) {
 
 	//#I
 	integ += error * dt;
-	if (max_i_value != 0) integ = self.constrain(integ, -max_i_value, max_i_value);
+	if (max_i_value != 0) integ = constrain(integ, -max_i_value, max_i_value);
 
 	output += ki * integ;
 

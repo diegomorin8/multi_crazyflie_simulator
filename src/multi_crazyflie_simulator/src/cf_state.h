@@ -39,12 +39,11 @@ CF_state::CF_state() {
 	forces.zero(); 
 	momentums.zero();
 	sum_motor_rotations = 0; 
-	num_motors = CF_parameters().NUM_MOTORS; 
-	if (num_motors != 4) ros::loginfo("[CF_State] ERROR: Number of motors is 4. If you wish to have a different number of motors, readjust function getMomentums() to adapt to your custom configuration");
+	num_motors = CF_parameters().getNumMotors(); 
 	motor_pwm = new int[num_motors]();
-	motor_rotation_speed = new double[motor_rotation_speed]();
+	motor_rotation_speed = new double[num_motors]();
 	for (int i = 0; i < num_motors; i++) {
-		motors_pwm[i] = 0;
+		motor_pwm[i] = 0;
 		motor_rotation_speed[i] = 0.0;
 	}
 	CT = CF_parameters().CT;
@@ -58,10 +57,10 @@ void CF_state::getMotorRotationSpeed() {
 	}
 }
 	
-void CF_state::addMotorsRotationsSpeed() {
+void CF_state::addMotorRotationSpeed() {
 	sum_motor_rotations = 0; 
-	for (int i = 0; i < num_motors) {
-		sum_motor_rotations += motor_rotation_speed * motor_rotation_speed; 
+	for (int i = 0; i < num_motors; i++) {
+		sum_motor_rotations += motor_rotation_speed[i] * motor_rotation_speed[i]; 
 	}
 }
 
@@ -70,7 +69,7 @@ void CF_state::getForces() {
 }
 
 void CF_state::getMomentums() {
-	momentums.x(L*CT/sqrt(2))*(-(motor_rotation_speed[0]* motor_rotation_speed[0]) - (motor_rotation_speed[1]* motor_rotation_speed[1]) + motor_rotation_speed[2]*motor_rotation_speed[2] + motor_rotation_speed[3]* motor_rotation_speed[3]);
-	momentums.y(L*CT / sqrt(2))*(-(motor_rotation_speed[0] * motor_rotation_speed[0]) + (motor_rotation_speed[1] * motor_rotation_speed[1]) + motor_rotation_speed[2] * motor_rotation_speed[2] - motor_rotation_speed[3] * motor_rotation_speed[3]);
-	momentums.z(CD*(-(motor_rotation_speed[0] * motor_rotation_speed[0]) + (motor_rotation_speed[1] * motor_rotation_speed[1]) - motor_rotation_speed[2] * motor_rotation_speed[2] + motor_rotation_speed[3] * motor_rotation_speed[3]);
+	momentums.x((L*CT/sqrt(2))*(-(motor_rotation_speed[0]* motor_rotation_speed[0]) - (motor_rotation_speed[1]* motor_rotation_speed[1]) + motor_rotation_speed[2]*motor_rotation_speed[2] + motor_rotation_speed[3]* motor_rotation_speed[3]));
+	momentums.y((L*CT / sqrt(2))*(-(motor_rotation_speed[0] * motor_rotation_speed[0]) + (motor_rotation_speed[1] * motor_rotation_speed[1]) + motor_rotation_speed[2] * motor_rotation_speed[2] - motor_rotation_speed[3] * motor_rotation_speed[3]));
+	momentums.z(CD*(-(motor_rotation_speed[0] * motor_rotation_speed[0]) + (motor_rotation_speed[1] * motor_rotation_speed[1]) - motor_rotation_speed[2] * motor_rotation_speed[2] + motor_rotation_speed[3] * motor_rotation_speed[3]));
 }
