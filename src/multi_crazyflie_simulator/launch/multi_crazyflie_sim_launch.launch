@@ -2,31 +2,40 @@
 <launch>
   <arg name="num_quads" default="1" />
   <arg name="mode" default="RANDOM" />
-  <arg name="radius" default="2" />
+  <arg name="radius" default="2" />  
+  <arg name="language" default="cpp" />
   <group ns="crazyflie_swarm">
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 0)">
-       <arg name="quad_number" value="0"/>
+       <arg name="quad_number" value="0"/>      
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 1)">
        <arg name="quad_number" value="1"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 2)">
        <arg name="quad_number" value="2"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 3)">
        <arg name="quad_number" value="3"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 4)">
        <arg name="quad_number" value="4"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 5)">
        <arg name="quad_number" value="5"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 6)">
        <arg name="quad_number" value="6"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
     <include file="$(find multi_crazyflie_simulator)/launch/launch_single_cf.launch" if="$(eval arg('num_quads') - 1 >= 7)">
        <arg name="quad_number" value="7"/>
+       <arg name="language" value="$(arg language)"/>
     </include>
   </group>
 

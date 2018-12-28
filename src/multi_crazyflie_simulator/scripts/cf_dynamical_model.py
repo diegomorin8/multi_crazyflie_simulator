@@ -238,16 +238,13 @@ class CF_model():
 
         return rot
 
-    def rotation_matrix(self, roll, pitch, yaw):
-        return np.array([[cos(pitch)*cos(yaw),
-                             cos(pitch)*sin(yaw),
-                             -sin(pitch)],
-                            [sin(roll)*sin(pitch)*cos(yaw) - cos(roll)*sin(yaw),
-                             sin(roll)*sin(pitch)*sin(yaw) + cos(roll)*cos(yaw),
-                             sin(roll)*cos(pitch)],
-                            [cos(roll)*sin(pitch)*cos(yaw) + sin(roll)*sin(yaw),
-                             cos(roll)*sin(pitch)*sin(yaw) - sin(roll)*cos(yaw),
-                             cos(roll)*cos(pitch)]])
+    def rot_2(self, roll, pitch, yaw):
+        rotx = self.rot_x(roll)
+        roty = self.rot_y(pitch)
+        rotz = self.rot_z(yaw)
+        rot = np.dot(np.dot(rotz, roty), rotx)
+
+        return rot
 
     def euler_matrix(self, roll, pitch, yaw):
         cos_roll = cos(roll)
@@ -313,7 +310,10 @@ class CF_model():
         # New simulated state
         new_state = CF_state()
 
+        self.cf_state.position = np.array([0.0, 0.0, 1.0])
+
         rotation_matrix = self.rot_m(self.cf_state.attitude[0],self.cf_state.attitude[1], self.cf_state.attitude[2])
+
         euler_matrix = self.euler_matrix(self.cf_state.attitude[0],self.cf_state.attitude[1], self.cf_state.attitude[2])
 
         self.cf_state.getMotorRotationSpeed()
@@ -328,10 +328,12 @@ class CF_model():
         preoperation = self.cf_state.momentums - np.cross(self.cf_state.ang_vel,
                                             np.dot(self.cf_physical_params.INERTIA_MATRIX,
                                             self.cf_state.ang_vel))
+
         new_state.ang_vel = np.dot(self.cf_physical_params.INV_INERTIA_MATRIX, preoperation)
 
         new_state.attitude = np.dot(euler_matrix, self.cf_state.ang_vel)
-
+        rospy.loginfo("Ang vel: " + str(new_state.ang_vel))
+        rospy.loginfo("Attitude: " + str(new_state.attitude))
         for i in range(0, 3):
             self.cf_state.position[i] = self.cf_state.position[i] + (new_state.position[i] * self.cf_physical_params.DT_CF)
             self.cf_state.attitude[i] = self.cf_state.attitude[i] + (new_state.attitude[i] * self.cf_physical_params.DT_CF)
@@ -372,7 +374,7 @@ class CF_model():
 
         self.desired_thrust = max((raw_thrust * 1000 + self.cf_physical_params.BASE_THRUST), self.cf_physical_params.PWM_MIN)
 
-		self.desired_ang_vel[2]  = self.yaw_pid.update(self.desired_att[2], self.cf_state.attitude_deg[2])
+        self.desired_ang_vel[2]  = self.yaw_pid.update(self.desired_att[2], self.cf_state.attitude_deg[2])
 
     def run_att_pid(self):
         self.desired_ang_vel = np.array([self.roll_pid.update(self.desired_att[0], self.cf_state.attitude_deg[0]),
@@ -456,9 +458,9 @@ class CF_model():
 
                 if(self.out_pos_counter == self.out_pos_counter_max):
                     self.out_pos_counter = 0
-					if mode == "POS":
-						self.run_pos_pid()
-						self.run_lin_vel_pid()
+                    if self.mode == "POS":
+                        self.run_pos_pid()
+                        self.run_lin_vel_pid()
                     self.publishPose()
                     #self.log_state()
                 else:

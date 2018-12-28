@@ -452,6 +452,11 @@ public:
         *a_destination[8] = (*this)(2,2);
     }
 
+	inline double get(int a, int b)
+    {
+        return (*this)(a,b);
+    }
+
 
     //--------------------------------------------------------------------------
     /*!

@@ -1,7 +1,11 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="quad_number" default="1" />
-  <node name="$(anon dynamical_model)" pkg="multi_crazyflie_simulator" type="cf_dynamical_model.py" output="screen">
+  <arg name="language" default="cpp"/>
+  <node name="$(anon dynamical_model)" pkg="multi_crazyflie_simulator" type="cf_dynamical_model.py" output="screen" if="$(eval language == 'python')">
+    <param name="topic" value="/crazyflie_$(arg quad_number)" />
+  </node>
+  <node name="$(anon dynamical_model)" pkg="multi_crazyflie_simulator" type="cf_node" output="screen" if="$(eval language == 'cpp')">
     <param name="topic" value="/crazyflie_$(arg quad_number)" />
   </node>
 </launch>

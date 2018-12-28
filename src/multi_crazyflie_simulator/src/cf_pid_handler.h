@@ -1,6 +1,7 @@
 #ifndef PID_HANDLERH
 #define PID_HANDLERH
 
+#include <iostream>
 #include "Utils/CConstants.h"
 #include "Utils/CMatrix3d.h"
 #include "Utils/CVector3d.h"
@@ -17,7 +18,7 @@ class CF_pid_handler {
 		void setPosCmd(double x, double y, double z, double yaw);
 		void runPosPID(double currentX, double currentY, double currentZ);
 		void runLinVelPID(double currentVX, double currentVY, double currentVZ, double currentYaw);
-		void runAttPID(double currentRoll, double currentPitch);
+		void runAttPID(double currentRoll, double currentPitch, double currentYaw);
 		void runAngVelPID(double currentWX, double currentWY, double currentWZ, int* a_PWM);
 		int getPidAttCounterMax();
 		int getPidPosCounterMax();
@@ -135,7 +136,7 @@ void CF_pid_handler::runPosPID(double currentX, double currentY, double currentZ
 						zPID.update(desiredPos.z(), currentZ));
 }
 
-void CF_pid_handler::runLinVelPID(double currentVX, double currentVY, double currentVZ, double currentYaw) {
+void CF_pid_handler::runLinVelPID(double currentVX, double currentVY, double currentVZ,  double currentYaw) {
 	double rawPitch = vyPID.update(desiredLinVel.y(), currentVY);
 	double rawRoll = vxPID.update(desiredLinVel.x(), currentVX);
 
@@ -144,22 +145,19 @@ void CF_pid_handler::runLinVelPID(double currentVX, double currentVY, double cur
 
 	//# Transformation to the drone body frame
 	desiredAtt.y(-(rawRoll * cos(rawYaw)) - (rawPitch * sin(rawYaw)));
-	desiredAtt.x(-(rawPitch * cos(rawYaw)) + (rawRoll * sin(rawYaw)));
-
+	desiredAtt.x(-(rawPitch * cos(rawYaw)) + (rawRoll * sin(rawYaw))); 
 	desiredAtt.x(max(min(MAX_ATT, desiredAtt.x()), -MAX_ATT));
 	desiredAtt.y(max(min(MAX_ATT, desiredAtt.y()), -MAX_ATT));
-
+ 
 	double rawThrust = vzPID.update(desiredLinVel.z(), currentVZ);
 	desiredThrust = (int)max((rawThrust * 1000 + cf_physical_params.BASE_THRUST), cf_physical_params.PWM_MIN);
-
-	desiredAngVel.z(yawPID.update(desiredAtt.z(), currentYaw));
-
 }
 
-void CF_pid_handler::runAttPID(double currentRoll, double currentPitch) {
+void CF_pid_handler::runAttPID(double currentRoll, double currentPitch, double currentYaw) {
 
 	desiredAngVel.x(rollPID.update(desiredAtt.x(), currentRoll));
 	desiredAngVel.y(pitchPID.update(-desiredAtt.y(), currentPitch));
+	desiredAngVel.z(yawPID.update(desiredAtt.z(), currentYaw));
 }
 
 void CF_pid_handler::runAngVelPID(double currentWX, double currentWY, double currentWZ, int* a_PWM) {
